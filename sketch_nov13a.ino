@@ -46,10 +46,6 @@ const byte shiftRow[] = {
 byte rowState[8] = { B00000000 };
 byte prevRowState[8] = { B00000000 };
 
-char buffer[128] = { 0 };
-int readPrt = 0;
-int writePtr  = 0;
-
 const char keys[] = {
   '1', 'v', '5', ',', '9', '`',     arrow_r_key, f2_key,
   'q', 'f', 't', 'k', 'o', ']',     arrow_d_key, f1_key,
@@ -106,6 +102,16 @@ bool f2 = false;
 
 auto timer = timer_create_default();
 
+char buffer[128] = { 0 };
+int readPrt = 0;
+int writePtr  = 0;
+
+// pins for the side that communicates to the 6502
+const int dataOutPins[4] = { 8, 9, 10, 11 };
+const int ackPin = 12;
+const int availPin = 13;
+bool avail = false;
+
 void setup() {
   Serial.begin(9600);
 
@@ -122,11 +128,26 @@ void setup() {
   // make sure shift register starts at all HIGH
   updateShiftRegister(B11111111);
 
+  for (int i = 0; i < 4; i++) {
+    pinMode(dataOutPins[i], OUTPUT);
+  }
+  pinMode(availPin, OUTPUT);
+  digitalWrite(availPin, 0);
+  pinMode(ackPin, INPUT);                  // with hardware pulldown
+
   timer.every(20, readKeyboard);        // in ms
 }
 
 void loop() {
   timer.tick();
+  
+  if(avail) {
+    digitalWrite(availPin, 1);
+
+    while(digitalRead(ackPin) == 0);
+    avail = false;
+    digitalWrite(availPin, avail);
+  }
 }
 
 void readKeyboard() {
@@ -191,5 +212,11 @@ void handleKeys() {
 void processChar(char receivedKey) {
   Serial.print(receivedKey);
   buffer[writePtr] = receivedKey;
-  writePtr++;
+  
+  if(writePtr == 128) {
+    writePtr = 0;
+  } else {
+    writePtr++;
+  }
+  avail = true;
 }
