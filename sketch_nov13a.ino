@@ -29,6 +29,8 @@ const int esc_key     = 27;
 const int ctrl_key    = 0;
 const int unused_key  = 0;
 const int space_key   = ' ';
+const int bsp_key     = 8;
+const int del_key     = 127;
 
 // shiftRow is the required shift register byte for each row, rowState will contain pressed keys for each row
 const byte shiftRow[] = {
@@ -44,51 +46,55 @@ const byte shiftRow[] = {
 byte rowState[8] = { B00000000 };
 byte prevRowState[8] = { B00000000 };
 
+char buffer[128] = { 0 };
+int readPrt = 0;
+int writePtr  = 0;
+
 const char keys[] = {
-  '1', 'v', '5', ',', '9', '`',  arrow_r_key, f2_key,
-  'q', 'f', 't', 'k', 'o', ']',  arrow_d_key, f1_key,
-  'a', 'r', 'g', 'i', 'l', '\\', arrow_u_key, ctrl_key,
-  'z', '4', 'b', '8', '.', ' ',  arrow_l_key, shift_r_key,
-  '3', 'x', '7', 'n', '-', '/',  space_key,   shift_l_key,
-  'e', 's', 'u', 'h', '=', ';',  tab_key,     capsKey,
-  'd', 'w', 'j', 'y', '[', 'p',  unused_key,  enter_key,
-  'c', '2', 'm', '6', '\'', '0', esc_key,     unused_key
+  '1', 'v', '5', ',', '9', '`',     arrow_r_key, f2_key,
+  'q', 'f', 't', 'k', 'o', ']',     arrow_d_key, f1_key,
+  'a', 'r', 'g', 'i', 'l', '\\',    arrow_u_key, ctrl_key,
+  'z', '4', 'b', '8', '.', bsp_key, arrow_l_key, shift_r_key,
+  '3', 'x', '7', 'n', '-', '/',     space_key,   shift_l_key,
+  'e', 's', 'u', 'h', '=', ';',     tab_key,     capsKey,
+  'd', 'w', 'j', 'y', '[', 'p',     unused_key,  enter_key,
+  'c', '2', 'm', '6', '\'', '0',    esc_key,     unused_key
 };
 
 // ASCII codes for keys with shift pressed AND caps is active
 const char capsShiftKeys[] = {
-  '!', 'v', '%', '<', '(', '~', arrow_r_key, f2_key,
-  'q', 'f', 't', 'k', 'o', '}', arrow_d_key, f1_key,
-  'a', 'r', 'g', 'i', 'l', '|', arrow_u_key, ctrl_key,
-  'z', '$', 'b', '*', '>', ' ', arrow_l_key, shift_r_key,
-  '#', 'x', '&', 'n', '_', '?', space_key,   shift_l_key,
-  'e', 's', 'u', 'h', '+', ':', tab_key,     capsKey,
-  'd', 'w', 'j', 'y', '{', 'p', unused_key,  enter_key,
-  'c', '@', 'm', '^', '"', ')', esc_key,     unused_key
+  '!', 'v', '%', '<', '(', '~',     arrow_r_key, f2_key,
+  'q', 'f', 't', 'k', 'o', '}',     arrow_d_key, f1_key,
+  'a', 'r', 'g', 'i', 'l', '|',     arrow_u_key, ctrl_key,
+  'z', '$', 'b', '*', '>', del_key, arrow_l_key, shift_r_key,
+  '#', 'x', '&', 'n', '_', '?',     space_key,   shift_l_key,
+  'e', 's', 'u', 'h', '+', ':',     tab_key,     capsKey,
+  'd', 'w', 'j', 'y', '{', 'p',     unused_key,  enter_key,
+  'c', '@', 'm', '^', '"', ')',     esc_key,     unused_key
 };
 
 // ASCII codes for keys with shift pressed.
 const char shiftKeys[] = {
-  '!', 'V', '%', '<', '(', '~', arrow_r_key, f2_key,
-  'Q', 'F', 'T', 'K', 'O', '}', arrow_d_key, f1_key,
-  'A', 'R', 'G', 'I', 'L', '|', arrow_u_key, ctrl_key,
-  'Z', '$', 'B', '*', '>', ' ', arrow_l_key, shift_r_key,
-  '#', 'X', '&', 'N', '_', '?', space_key,   shift_l_key,
-  'E', 'S', 'U', 'H', '+', ':', tab_key,     capsKey,
-  'D', 'W', 'J', 'Y', '{', 'P', unused_key,  enter_key,
-  'C', '@', 'M', '^', '"', ')', esc_key,     unused_key
+  '!', 'V', '%', '<', '(', '~',     arrow_r_key, f2_key,
+  'Q', 'F', 'T', 'K', 'O', '}',     arrow_d_key, f1_key,
+  'A', 'R', 'G', 'I', 'L', '|',     arrow_u_key, ctrl_key,
+  'Z', '$', 'B', '*', '>', del_key, arrow_l_key, shift_r_key,
+  '#', 'X', '&', 'N', '_', '?',     space_key,   shift_l_key,
+  'E', 'S', 'U', 'H', '+', ':',     tab_key,     capsKey,
+  'D', 'W', 'J', 'Y', '{', 'P',     unused_key,  enter_key,
+  'C', '@', 'M', '^', '"', ')',     esc_key,     unused_key
 };
 
 // ASCII codes for keys with caps is active
 const char capsKeys[] = {
-  '1', 'V', '5', ',', '9', '`',  arrow_r_key, f2_key,
-  'Q', 'F', 'T', 'K', 'O', ']',  arrow_d_key, f1_key,
-  'A', 'R', 'G', 'I', 'L', '\\', arrow_u_key, ctrl_key,
-  'Z', '4', 'B', '8', '.', ' ',  arrow_l_key, shift_r_key,
-  '3', 'X', '7', 'N', '-', '/',  space_key,   shift_l_key,
-  'E', 'S', 'U', 'H', '=', ';',  tab_key,     capsKey,
-  'D', 'W', 'J', 'Y', '[', 'P',  unused_key,  enter_key,
-  'C', '2', 'M', '6', '\'', '0', esc_key,     unused_key
+  '1', 'V', '5', ',', '9', '`',     arrow_r_key, f2_key,
+  'Q', 'F', 'T', 'K', 'O', ']',     arrow_d_key, f1_key,
+  'A', 'R', 'G', 'I', 'L', '\\',    arrow_u_key, ctrl_key,
+  'Z', '4', 'B', '8', '.', bsp_key, arrow_l_key, shift_r_key,
+  '3', 'X', '7', 'N', '-', '/',     space_key,   shift_l_key,
+  'E', 'S', 'U', 'H', '=', ';',     tab_key,     capsKey,
+  'D', 'W', 'J', 'Y', '[', 'P',     unused_key,  enter_key,
+  'C', '2', 'M', '6', '\'', '0',    esc_key,     unused_key
 };
  
 bool caps = false;
@@ -116,7 +122,7 @@ void setup() {
   // make sure shift register starts at all HIGH
   updateShiftRegister(B11111111);
 
-  timer.every(5, readKeyboard);         // 5ms
+  timer.every(20, readKeyboard);        // in ms
 }
 
 void loop() {
@@ -125,7 +131,7 @@ void loop() {
 
 void readKeyboard() {
     scanKeyboard();
-    checkPressedKeys();
+    handleKeys();
 }
 
 void updateShiftRegister(byte row) {
@@ -144,21 +150,21 @@ void scanKeyboard() {
   }
 }
 
-void checkPressedKeys() {
+void handleKeys() {
   shift     = bitRead(rowState[3], 7) | bitRead(rowState[4], 7);
   ctrl      = bitRead(rowState[2], 7);
   f1        = bitRead(rowState[1], 7);
   f2        = bitRead(rowState[0], 7);
   capsShift = shift && caps;
   
-  for (int row = 7; row >= 0; row--) {                    // iterate through each row
-    for (int column = 7; column >= 0; column--) {                  // iterate through each bit in that row
+  for (int row = 7; row >= 0; row--) {
+    for (int column = 7; column >= 0; column--) {
       
-      bool newBit = bitRead(rowState[row], column);             // check the state of that bit
-      bool prevBit = bitRead(prevRowState[row], column);         // check the previous state of that bit
+      bool newBit = bitRead(rowState[row], column);
+      bool prevBit = bitRead(prevRowState[row], column);
       
-      if (newBit == 1 && prevBit == 0) {                       // only allows button press if state has changed to true
-          int charIndex = (row * 8) + column;               // calculate which position in char array to select
+      if (newBit == 1 && prevBit == 0) {
+          int charIndex = (row * 8) + column;
           int character;
 
           if (capsShift) {
@@ -184,4 +190,6 @@ void checkPressedKeys() {
 
 void processChar(char receivedKey) {
   Serial.print(receivedKey);
+  buffer[writePtr] = receivedKey;
+  writePtr++;
 }
