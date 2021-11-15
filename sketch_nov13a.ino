@@ -6,7 +6,9 @@
  *    
  *    More info: https://www.hackster.io/cameroncoward/64-key-prototyping-keyboard-matrix-for-arduino-4c9531
  */
-#include <arduino-timer.h>
+#define USE_TIMER_1     true
+#include "TimerInterrupt.h"
+#define TIMER1_INTERVAL_MS    5
 
 const int rowData = 2;  // shift register Data pin for rows
 const int rowLatch = 3; // shift register Latch pin for rows
@@ -100,8 +102,6 @@ bool ctrl = false;
 bool f1 = false;
 bool f2 = false;
 
-auto timer = timer_create_default();
-
 char buffer[128] = { 0 };
 int readPrt = 0;
 int writePtr  = 0;
@@ -135,12 +135,18 @@ void setup() {
   digitalWrite(availPin, 0);
   pinMode(ackPin, INPUT);                  // with hardware pulldown
 
-  timer.every(20, readKeyboard);        // in ms
+  ITimer1.init();
+
+  if (ITimer1.attachInterruptInterval(TIMER1_INTERVAL_MS, readKeyboard))
+  {
+    Serial.print(F("Starting  ITimer1 OK, millis() = ")); Serial.println(millis());
+  }
+  else {
+    Serial.println(F("Can't set ITimer1. Select another freq. or timer"));
+  }
 }
 
 void loop() {
-  timer.tick();
-  
   if(avail) {
     digitalWrite(availPin, 1);
 
