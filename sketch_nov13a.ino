@@ -8,7 +8,6 @@
  */
 #define USE_TIMER_1     true
 #include "TimerInterrupt.h"
-#define TIMER1_INTERVAL_MS    5
 
 const int rowData = 2;  // shift register Data pin for rows
 const int rowLatch = 3; // shift register Latch pin for rows
@@ -103,14 +102,13 @@ bool f1 = false;
 bool f2 = false;
 
 char buffer[128] = { 0 };
-int readPrt = 0;
+int readPtr = 0;
 int writePtr  = 0;
 
 // pins for the side that communicates to the 6502
 const int dataOutPins[4] = { 8, 9, 10, 11 };
 const int ackPin = 12;
 const int availPin = 13;
-bool avail = false;
 
 void setup() {
   Serial.begin(9600);
@@ -136,23 +134,53 @@ void setup() {
   pinMode(ackPin, INPUT);                  // with hardware pulldown
 
   ITimer1.init();
-
-  if (ITimer1.attachInterruptInterval(TIMER1_INTERVAL_MS, readKeyboard))
-  {
-    Serial.print(F("Starting  ITimer1 OK, millis() = ")); Serial.println(millis());
-  }
-  else {
-    Serial.println(F("Can't set ITimer1. Select another freq. or timer"));
-  }
+  ITimer1.attachInterruptInterval(5, readKeyboard);
 }
 
 void loop() {
-  if(avail) {
+  if(readPtr != writePtr) {
+    char nextChar = buffer[readPtr];
+    // the high nibble of the next character
+    digitalWrite(dataOutPins[0], bitRead(nextChar, 7));
+    digitalWrite(dataOutPins[1], bitRead(nextChar, 6));
+    digitalWrite(dataOutPins[2], bitRead(nextChar, 5));
+    digitalWrite(dataOutPins[3], bitRead(nextChar, 4));
+
+    // signal that the data is now valid
     digitalWrite(availPin, 1);
 
+    // wait for ack to go high
     while(digitalRead(ackPin) == 0);
-    avail = false;
-    digitalWrite(availPin, avail);
+
+    // set avail to low to signal that the data should no longer be read
+    digitalWrite(availPin, 0);
+
+    // wait for ack to go low
+    while(digitalRead(ackPin) == 1);
+
+    // set the low nibble on the data lines
+    digitalWrite(dataOutPins[0], bitRead(nextChar, 3));
+    digitalWrite(dataOutPins[1], bitRead(nextChar, 2));
+    digitalWrite(dataOutPins[2], bitRead(nextChar, 1));
+    digitalWrite(dataOutPins[3], bitRead(nextChar, 0));
+
+    // signal that the data is now valid again, this time for the low nibble
+    digitalWrite(availPin, 1);
+    
+    // wait for ack to go high
+    while(digitalRead(ackPin) == 0);
+
+    // set avail to low to signal that the data should no longer be read
+    digitalWrite(availPin, 0);
+
+    // wait for ack to go low
+    while(digitalRead(ackPin) == 1);
+
+    if(readPtr == 128) {
+      readPtr = 0;
+    } else {
+      readPtr++;
+    }
   }
 }
 
@@ -217,6 +245,7 @@ void handleKeys() {
 
 void processChar(char receivedKey) {
   Serial.print(receivedKey);
+
   buffer[writePtr] = receivedKey;
   
   if(writePtr == 128) {
@@ -224,5 +253,4 @@ void processChar(char receivedKey) {
   } else {
     writePtr++;
   }
-  avail = true;
 }
