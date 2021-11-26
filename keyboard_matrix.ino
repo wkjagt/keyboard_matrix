@@ -1,11 +1,11 @@
 /*    Sketch for Prototyping Keyboard V1.2
- *    by Cameron Coward 1/30/21
- *    
- *    Tested on Arduino Uno. Requires custom PCB
- *    and a 74HC595 shift register.
- *    
- *    More info: https://www.hackster.io/cameroncoward/64-key-prototyping-keyboard-matrix-for-arduino-4c9531
- */
+      by Cameron Coward 1/30/21
+
+      Tested on Arduino Uno. Requires custom PCB
+      and a 74HC595 shift register.
+
+      More info: https://www.hackster.io/cameroncoward/64-key-prototyping-keyboard-matrix-for-arduino-4c9531
+*/
 #define USE_TIMER_1     true
 #include "TimerInterrupt.h"
 
@@ -16,10 +16,10 @@ const int rowClock = 4; // shift register Clock pin for rows
 const int columns[] = { A0, A1, A2, A3, A4, A5, 5, 6 };
 
 const int enter_key   = 10;
-const int arrow_l_key = 0;
-const int arrow_r_key = 0;
-const int arrow_u_key = 0;
-const int arrow_d_key = 0;
+const int arrow_r_key = 28;
+const int arrow_l_key = 29;
+const int arrow_u_key = 30;
+const int arrow_d_key = 31;
 const int f1_key      = 0;
 const int f2_key      = 0;
 const int shift_l_key = 0;
@@ -32,6 +32,11 @@ const int unused_key  = 0;
 const int space_key   = ' ';
 const int bsp_key     = 8;
 const int del_key     = 127;
+const int scroll_u    = 20;
+const int scroll_d    = 21;
+const int scroll_l    = 22;
+const int scroll_r    = 23;
+const int clear_scr   = 12;
 
 // shiftRow is the required shift register byte for each row, rowState will contain pressed keys for each row
 const byte shiftRow[] = {
@@ -72,14 +77,14 @@ const char capsShiftKeys[] = {
 
 // ASCII codes for keys with shift pressed.
 const char shiftKeys[] = {
-  '!', 'V', '%', '<', '(', '~',     arrow_r_key, f2_key,
-  'Q', 'F', 'T', 'K', 'O', '}',     arrow_d_key, f1_key,
-  'A', 'R', 'G', 'I', 'L', '|',     arrow_u_key, ctrl_key,
-  'Z', '$', 'B', '*', '>', del_key, arrow_l_key, shift_r_key,
+  '!', 'V', '%', '<', '(', '~',     scroll_r,    f2_key,
+  'Q', 'F', 'T', 'K', 'O', '}',     scroll_d,    f1_key,
+  'A', 'R', 'G', 'I', 'L', '|',     scroll_u,    ctrl_key,
+  'Z', '$', 'B', '*', '>', del_key, scroll_l,    shift_r_key,
   '#', 'X', '&', 'N', '_', '?',     space_key,   shift_l_key,
   'E', 'S', 'U', 'H', '+', ':',     tab_key,     capsKey,
   'D', 'W', 'J', 'Y', '{', 'P',     unused_key,  enter_key,
-  'C', '@', 'M', '^', '"', ')',     esc_key,     unused_key
+  'C', '@', 'M', '^', '"', ')',     clear_scr,   unused_key
 };
 
 // ASCII codes for keys with caps is active
@@ -93,7 +98,7 @@ const char capsKeys[] = {
   'D', 'W', 'J', 'Y', '[', 'P',     unused_key,  enter_key,
   'C', '2', 'M', '6', '\'', '0',    esc_key,     unused_key
 };
- 
+
 bool caps = false;
 bool shift = false;
 bool capsShift = false;
@@ -117,7 +122,7 @@ void setup() {
   for (int i = 0; i < 8; i++) {
     pinMode(columns[i], INPUT_PULLUP);
   }
-  
+
   // the outputs needed to control the 74HC595 shift register
   pinMode(rowLatch, OUTPUT);
   pinMode(rowClock, OUTPUT);
@@ -138,7 +143,7 @@ void setup() {
 }
 
 void loop() {
-  if(readPtr != writePtr) {
+  if (readPtr != writePtr) {
     char nextChar = buffer[readPtr];
     // the high nibble of the next character
     digitalWrite(dataOutPins[0], bitRead(nextChar, 7));
@@ -150,13 +155,13 @@ void loop() {
     digitalWrite(availPin, 1);
 
     // wait for ack to go high
-    while(digitalRead(ackPin) == 0);
+    while (digitalRead(ackPin) == 0);
 
     // set avail to low to signal that the data should no longer be read
     digitalWrite(availPin, 0);
 
     // wait for ack to go low
-    while(digitalRead(ackPin) == 1);
+    while (digitalRead(ackPin) == 1);
 
     // set the low nibble on the data lines
     digitalWrite(dataOutPins[0], bitRead(nextChar, 3));
@@ -166,27 +171,47 @@ void loop() {
 
     // signal that the data is now valid again, this time for the low nibble
     digitalWrite(availPin, 1);
-    
+
     // wait for ack to go high
-    while(digitalRead(ackPin) == 0);
+    while (digitalRead(ackPin) == 0);
 
     // set avail to low to signal that the data should no longer be read
     digitalWrite(availPin, 0);
 
     // wait for ack to go low
-    while(digitalRead(ackPin) == 1);
+    while (digitalRead(ackPin) == 1);
 
-    if(readPtr == 128) {
+
+    char flags = buffer[readPtr + 1];
+    // the high nibble of the next character
+    digitalWrite(dataOutPins[0], bitRead(flags, 3));
+    digitalWrite(dataOutPins[1], bitRead(flags, 2));
+    digitalWrite(dataOutPins[2], bitRead(flags, 1));
+    digitalWrite(dataOutPins[3], bitRead(flags, 0));
+
+    // signal that the data is now valid
+    digitalWrite(availPin, 1);
+
+    // wait for ack to go high
+    while (digitalRead(ackPin) == 0);
+
+    // set avail to low to signal that the data should no longer be read
+    digitalWrite(availPin, 0);
+
+    // wait for ack to go low
+    while (digitalRead(ackPin) == 1);
+
+    if (readPtr == 126) {
       readPtr = 0;
     } else {
-      readPtr++;
+      readPtr = readPtr + 2;
     }
   }
 }
 
 void readKeyboard() {
-    scanKeyboard();
-    handleKeys();
+  scanKeyboard();
+  handleKeys();
 }
 
 void updateShiftRegister(byte row) {
@@ -211,32 +236,32 @@ void handleKeys() {
   f1        = bitRead(rowState[1], 7);
   f2        = bitRead(rowState[0], 7);
   capsShift = shift && caps;
-  
+
   for (int row = 7; row >= 0; row--) {
     for (int column = 7; column >= 0; column--) {
-      
+
       bool newBit = bitRead(rowState[row], column);
       bool prevBit = bitRead(prevRowState[row], column);
-      
+
       if (newBit == 1 && prevBit == 0) {
-          int charIndex = (row * 8) + column;
-          int character;
+        int charIndex = (row * 8) + column;
+        int character;
 
-          if (capsShift) {
-            character = capsShiftKeys[charIndex];
-          } else if(caps) {
-            character = capsKeys[charIndex];
-          } else if (shift) {
-            character = shiftKeys[charIndex];
-          } else {
-            character = keys[charIndex];
-          }
+        if (capsShift) {
+          character = capsShiftKeys[charIndex];
+        } else if (caps) {
+          character = capsKeys[charIndex];
+        } else if (shift) {
+          character = shiftKeys[charIndex];
+        } else {
+          character = keys[charIndex];
+        }
 
-          if (character == capsKey) {
-            caps = !caps;
-          } else if(character > 0) {
-            processChar(character);
-          }
+        if (character == capsKey) {
+          caps = !caps;
+        } else if (character > 0) {
+          processChar(character);
+        }
       }
       bitWrite(prevRowState[row], column, newBit);
     }
@@ -246,11 +271,19 @@ void handleKeys() {
 void processChar(char receivedKey) {
   Serial.print(receivedKey);
 
+  char flags = 0;
+  bitWrite(flags, 0, ctrl);
+  bitWrite(flags, 1, f1);
+  bitWrite(flags, 2, f2);
+  bitWrite(flags, 3, shift);
+
+
   buffer[writePtr] = receivedKey;
-  
-  if(writePtr == 128) {
+  buffer[writePtr + 1] = flags;
+
+  if (writePtr == 126) {
     writePtr = 0;
   } else {
-    writePtr++;
+    writePtr = writePtr + 2;
   }
 }
